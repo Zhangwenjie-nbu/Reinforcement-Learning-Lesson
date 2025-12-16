@@ -1,0 +1,214 @@
+# Reinforcement Learning (RL) Examples
+
+This folder contains small Reinforcement Learning example scripts and exercises used for teaching and experiments.
+
+Structure
+---------
+- `Dockerfile` - Docker build file that can be used to run the examples in a contained environment.
+- `environment.yml` - Conda environment specification (if present) for installing required Python packages.
+- `lesson1/` - Lesson 1 examples
+  - `lesson1_bandit.py` - Multi-armed bandit example (epsilon-greedy agent).
+- `lesson2/` - Lesson 2 examples
+  - `2_1_markov_property.py` - Script demonstrating Markov property concepts and a simple MDP/random walk example.
+- `lesson2_mdp_randomwalk.py` - Top-level lesson2 random walk / MDP demo.
+
+Quick start
+-----------
+Prerequisites
+- Python 3.8+ recommended
+- (Optional) Conda or Miniconda for `environment.yml`
+
+Using conda
+```bash
+conda env create -f environment.yml
+conda activate rl
+python lesson2/2_1_markov_property.py
+```
+
+Using Docker
+```bash
+# build image
+docker build -t rl-examples .
+# run the default demo
+docker run --rm rl-examples python lesson2/2_1_markov_property.py
+```
+
+Running examples
+----------------
+- Lesson 1 (bandit):
+  ```bash
+  python lesson1/lesson1_bandit.py
+  ```
+  This runs a basic k-armed bandit simulation with an epsilon-greedy agent and prints learned action values and rewards.
+
+- Lesson 2 (Markov / MDP):
+  ```bash
+  python lesson2/2_1_markov_property.py
+  ```
+  This script demonstrates the Markov property and contains a small random-walk / MDP example used in class.
+        lesson2.1
+
+        ### 1 轨迹与历史
+
+        在 RL 里，我们面对的是一条交互轨迹（trajectory）：
+        [
+        S_0, A_0, R_1, S_1, A_1, R_2, S_2, \ldots
+        ]
+        到时刻 (t) 的历史可写为：
+        [
+        H_t = (S_0, A_0, R_1, \ldots, S_t)
+        ]
+
+        ### 2 马尔可夫性（Markov property）
+
+        MDP 的关键假设是：
+        [
+        P(S_{t+1} \mid H_t, A_t) = P(S_{t+1} \mid S_t, A_t)
+        ]
+        直观含义：
+
+        * **给定当前状态 (S_t) 和当前动作 (A_t) 后**，下一步去哪里，与更久远的过去（怎么来的）无关。
+        * 这不否认随机性；它只是在说：随机性的“充分统计量”是 ((S_t, A_t))。
+
+        ### 3 转移核 (P(s'|s,a)) 是什么
+
+        * 它不是一个值，而是一整个分布（对所有 (s') 的概率）。
+        * 离散状态下可以是表：对每个 ((s,a)) 存一行概率向量。
+        * 连续状态下是密度函数/采样器（通常你拿不到解析式，只能采样）。
+
+        ### 你要观察的现象（这一步在做什么，为什么这么做）
+
+        * 你会看到两次估计的概率非常接近：
+
+        * 大概率到 3（没打滑）
+        * 小概率到 1（打滑反向）
+        * 即使我们不显式地构造“不同历史”，这个实验已经体现了核心：
+        **下一状态分布只由当前 ((s,a)) 决定**；不同历史的影响被“压缩”进当前状态 (s) 里了。
+
+        * 马尔可夫性是一个**条件独立**陈述：给定 ((S_t,A_t))，下一状态与更早历史无关。
+        * (P(s'|s,a)) 是**条件分布/转移核**，可以通过采样估计其概率形状。
+        * 随机性并不妨碍理论；我们用“期望/分布/采样”来处理随机性。
+
+        lesson2.2
+        # 第 2 课（2.2）：转移核 (P(s'|s,a)) 的“对象形态”与“经验估计”
+
+        这一节只聚焦一件事：**当你不知道环境的转移概率时，如何用数据把 (P(s'|s,a)) 估计出来（经验模型 / empirical model）**，以及这种估计误差意味着什么。
+
+        1. 把 (P(s'|s,a)) 视为“条件分布对象”，而不是一个数。
+        2. 在离散状态下把它写成“转移矩阵” (P_a)。
+        3. 在未知模型时，写出经验估计：
+        [
+        \hat P(s'|s,a)=\frac{N(s,a,s')}{N(s,a)}
+        ]
+        4. 理解：为什么必须“覆盖所有 ((s,a))”才能估得准；以及误差大约如何随样本数衰减。
+
+        ---
+
+        ### 1 离散状态下：它就是一张“按动作分组的概率表”
+
+        如果状态离散且有限（如 0..4），对每个动作 (a)，可以把转移核写成矩阵：
+        [
+        P_a[s,s'] = P(S_{t+1}=s' \mid S_t=s, A_t=a)
+        ]
+
+        * 每一行（固定 (s)）是一个概率分布（加和为 1）。
+        * 不同动作 (a) 对应不同矩阵 (P_a)。
+
+        这就是动态规划（DP）里“已知模型”的输入。
+
+        ---
+
+        ### 2 连续状态下：往往没有显式矩阵，只有“采样器”
+
+        在很多实际环境（机器人、游戏）：
+
+        * 你拿不到解析式 (P(\cdot|s,a))
+        * 你只能调用环境一步：给出 ((s,a))，环境吐出一个样本 (s')
+
+        所以更现实的视角是：**环境提供一个从 (P(\cdot|s,a)) 采样的生成器**。
+
+        ---
+
+        ### 3 未知模型时：经验估计（Empirical Transition Model）
+
+        如果你收集到很多条转移样本 ((s,a,s'))，就能用计数估计：
+        [
+        \hat P(s'|s,a) = \frac{N(s,a,s')}{N(s,a)}
+        ]
+
+        * (N(s,a))：你在数据里看到 ((s,a)) 出现了多少次
+        * (N(s,a,s'))：其中转移到 (s') 的次数
+
+        **为什么它是合理的？**
+        这是对条件分布的极大似然估计（离散分布下就是“频率即概率”），并且样本数足够大时会收敛到真实 (P)（大数定律）。
+
+        ---
+
+        ### 4 估计误差的核心事实（非常重要）
+
+        对固定的 ((s,a,s'))，(\hat P) 的典型误差量级大致是：
+        [
+        \text{error} \sim O\left(\frac{1}{\sqrt{N(s,a)}}\right)
+        ]
+        直观含义：
+
+        * **不是总样本数 (N) 决定你估得准不准，而是每个 ((s,a)) 被看到了多少次**。
+        * 这直接导向 RL 的“探索”需求：不探索，很多 ((s,a)) 根本没有数据，模型就估不出来。
+
+        lesson2.3
+
+        1. 区分三类结束信号：**自然终止（terminal）**、**吸收态（absorbing）**、**时间截断（time-limit truncation）**。
+        2. 理解为什么在算法更新里，经常出现：
+        [
+        \text{target} = r + \gamma (1-\text{done}) V(s')
+        ]
+        以及何时这条写法会出错（尤其是 time-limit 截断）。
+        3. 在工程实现中能正确处理 `done` / `truncated`（或等价标志），避免把“截断”当成“终止”。
+
+        ---
+
+        ### 1 自然终止（terminal）
+
+        这是环境定义的“任务结束”：
+
+        * 到达目标、失败、生命值归零、棋局结束等。
+        * 一旦终止，后续通常不再产生有效转移（或被视为到达吸收态）。
+
+        数学上常用一个终止集合 (\mathcal{T}\subseteq \mathcal{S})。当 (S_t\in \mathcal{T})，episode 结束。
+
+        ---
+
+        ### 2 吸收态（absorbing state）
+
+        吸收态是一种把“终止”写进 MDP 的标准技巧：增加一个或多个状态，使得：
+
+        * 一旦进入吸收态 (s^*)，以后永远停留在 (s^*)：(P(s^*|s^*,a)=1)
+        * 且奖励为 0（或固定常数），使回报在终止后不再变化。
+
+        这样就把“episode 结束”变成“进入吸收态后继续但不再贡献回报”，在理论推导（尤其是贝尔曼方程）里更干净。
+
+        ---
+
+        ### 3 时间截断（time-limit truncation）
+
+        这是**工程上的强制停止**：例如规定最多 200 步就结束一局，以便训练可控。
+
+        关键点：
+
+        * 截断不是“任务自然结束”，只是你没让它继续演化下去。
+        * 如果你把截断当成 terminal（即强行令 (V(s')=0)），会引入系统性偏差：你等于假设“200 步之后未来回报为 0”，这通常不成立。
+
+        因此现代实现常把结束拆成两类信号：
+
+        * `terminated`: 自然终止（真正 terminal）
+        * `truncated`: 时间截断（不是 terminal）
+
+
+Tips
+----
+- If you see missing dependencies, inspect `environment.yml` and install with conda or pip.
+- To run multiple experiments or tune hyperparameters, wrap the scripts or edit the seed/config variables inside the scripts.
+
+License & Notes
+----------------
+These examples are educational and minimal. They are good starting points for experiments and learning, not production-ready RL code.

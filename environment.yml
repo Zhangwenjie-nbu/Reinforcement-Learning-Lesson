@@ -1,0 +1,24 @@
+name: rl
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - jupyterlab
+  - ipykernel
+  - tqdm
+  - swig                  # 某些 Gym 扩展会用到（如 box2d）
+  - gymnasium             # 基础环境
+  - pytorch               # CPU/GPU 通用
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=12.1     # 若宿主机启用 GPU，将加载 CUDA 12.1 运行库
+  - pip:
+      - gymnasium[classic-control]   # CartPole 等经典控制环境
+      # - stable-baselines3==2.3.2   # （可选）后续想用 SB3 再解开

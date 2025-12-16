@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+
+# Environments
+.env
+venv/
+.env/
+
+# Jupyter
+.ipynb_checkpoints
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Data / outputs (按需修改)
+data/
+outputs/
+runs/
+final_model_release/
+PreTrainedModels/
